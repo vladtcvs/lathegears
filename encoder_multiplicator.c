@@ -1,6 +1,8 @@
 #include "encoder_multiplicator.h"
 #include "common.h"
 
+void message(const char *msg);
+
 struct multiplicator_s
 {
     int ratio;
@@ -13,15 +15,12 @@ struct multiplicator_s
     uint32_t step_ticks;
 };
 
-#define MAX_MULTIPLICATORS 2
-
 static struct multiplicator_s multiplicators[MAX_MULTIPLICATORS];
 static int num = 0;
 
 void encoder_multiplicator_cb(struct encoder_s* source, bool dir, void *arg)
 {
     struct multiplicator_s *m = arg;
-    struct encoder_s *mult = m->mult;
 
     m->dir = dir;
     int ratio = m->ratio;

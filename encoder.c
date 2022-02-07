@@ -1,4 +1,5 @@
 #include "encoder.h"
+#include "common.h"
 
 void encoder_register_callback(struct encoder_s *encoder, encoder_cb_f cb, void *arg)
 {

@@ -7,7 +7,7 @@
 #include "encoder_multiplicator.h"
 #include "control.h"
 
-#define MAX_THREADS 64
+
 
 struct encoder_s spindel_encoder;
 struct encoder_s spindel_multiplied_encoder;

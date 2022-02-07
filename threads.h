@@ -15,9 +15,7 @@ struct thread_bresenham_s
     uint32_t y;
     uint32_t y_max;
 
-    uint32_t delta_error_max;
     uint32_t error;
-    uint32_t delta_error;
 };
 
 struct thread_desc_s

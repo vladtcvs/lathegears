@@ -3,6 +3,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+void message(const char *msg);
+
 void thread_init(struct thread_desc_s *thread, real pitch, bool right, struct screw_desc_s *screw, struct encoder_s *encoder)
 {
     /**
@@ -46,8 +48,6 @@ void thread_start(struct thread_desc_s *thread)
     thread->bresenham.y = 0;
     thread->bresenham.y_max = thread->thread_steps;
 
-    thread->bresenham.delta_error = thread->thread_steps + 1;
-    thread->bresenham.delta_error_max = thread->encoder_steps + 1;
     thread->bresenham.error = 0;
 }
 
@@ -60,11 +60,11 @@ void thread_on_encoder_cb(struct encoder_s *encoder, bool dir, void *arg)
         return;
     }
 
-    thread->bresenham.error += thread->bresenham.delta_error;
+    thread->bresenham.error += thread->bresenham.y_max + 1;
     
-    while (thread->bresenham.error >= thread->bresenham.delta_error_max)
+    while (thread->bresenham.error >= thread->bresenham.x_max + 1)
     {
-        thread->bresenham.error -= thread->bresenham.delta_error_max;
+        thread->bresenham.error -= thread->bresenham.x_max + 1;
         thread->screw->set_dir(dir != thread->dir);
         thread->screw->make_step();
         thread->bresenham.y++;

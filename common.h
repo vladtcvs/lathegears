@@ -1,5 +1,6 @@
 #pragma once
 
-typedef double real;
+typedef float real;
 
-void message(const char *msg);
+#define MAX_THREADS 20
+#define MAX_MULTIPLICATORS 1

@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include "control.h"
 
+#include <avr/io.h>
+
+
 void message(const char *msg)
 {
     puts(msg);
@@ -16,6 +19,8 @@ void set_dir(bool dir)
 {
 
 }
+
+
 
 int main(void)
 {
