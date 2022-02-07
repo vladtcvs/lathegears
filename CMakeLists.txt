@@ -33,4 +33,5 @@ target_include_directories(firmware.elf PUBLIC ${PROJECT_SOURCE_DIR})
 #add_custom_target(strip ALL avr-strip firmware.elf DEPENDS firmware.elf)
 add_custom_target(firmware.bin ALL avr-objcopy -R .eeprom -O binary firmware.elf firmware.bin DEPENDS firmware.elf)
 
-add_custom_target(flash avrdude -v -pm328p -cwiring -P${PROGRAM_PORT} -b115200 -D -Uflash:w:firmware.bin DEPENDS firmware.bin)
+add_custom_target(flash avrdude -v -patmega328p -carduino -P${PROGRAM_PORT} -D -Uflash:w:firmware.bin DEPENDS firmware.bin)
+

@@ -5,6 +5,8 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 
+#define LED_PIN 5 // PORTB
+
 #define STEP_PIN 4
 #define DIR_PIN 5
 
@@ -15,9 +17,19 @@ void message(const char *msg)
 {
 }
 
+void blink(void)
+{
+    static bool val;
+    if (val)
+        PORTB |= 1 << LED_PIN;
+    else
+        PORTB &= ~(1 << LED_PIN);
+    val = !val;
+}
 
 void make_step(void)
 {
+    blink();
     PORTD &= ~(1 << STEP_PIN);
 }
 
@@ -44,12 +56,14 @@ ISR(INT0_vect)
     int B = PIND & (1 << PH_B_PIN);
 
     B = !!B;
-
     control_encoder_tick(B);
 }
 
 void config_hw(void)
 {
+    // Config LED
+    DDRB |= 1 << LED_PIN;
+
     // Config stepper pins
     DDRD |= 1 << STEP_PIN;
     DDRD |= 1 << DIR_PIN;
@@ -67,18 +81,19 @@ void config_hw(void)
     TCCR0B = (0 << WGM02) | (0 << CS02) | (0 << CS01) | (0 < CS00);
     TIMSK0 = (1 << OCIE0B) | (1 << OCIE0A);
 
-    OCR0A = 128; // 16 MHz / 128 = 125 kHz
-    OCR0B = 64;
+    OCR0A = 64; // 16 MHz / 128 = 125 kHz
+    OCR0B = 32;
 
     TCNT0 = 0;
 }
+
 
 void start_thread(int id)
 {
     cli();
     control_select_thread(id);
     control_start_thread();
-    TCCR0B |= ((0 << CS02) | (0 << CS01) | (1 < CS00));
+    TCCR0B |= ((0 << CS02) | (1 << CS01) | (0 < CS00));
     TCNT0 = 0;
     sei();
 }
@@ -91,6 +106,7 @@ void stop_thread(void)
     control_stop_thread();
     sei();
 }
+
 
 int main(void)
 {
@@ -126,3 +142,4 @@ int main(void)
 
     return 0;
 }
+
