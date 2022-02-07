@@ -73,7 +73,6 @@ void encoder_multiplicator_timer_tick(void)
 
             if (m->step_ticks > m->num_ticks / ratio)
             {
-                printf("%i\n", m->queued);
                 m->step_ticks = 0;
                 encoder_pulse(m->mult, m->dir);
                 m->queued--;

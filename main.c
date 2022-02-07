@@ -20,8 +20,11 @@ void set_dir(bool dir)
     sdir = dir;
 }
 
+int tsteps = 0;
+
 void make_step(void)
 {
+    tsteps++;
     return;
     if (sdir)
         printf("+\n");
@@ -32,15 +35,6 @@ void make_step(void)
 void message(const char *msg)
 {
     puts(msg);
-}
-
-int cnt = 0;
-int tcnt = 0;
-void print_pulse(struct encoder_s* encoder, bool dir, void *arg)
-{
-    //printf("/\n");
-    cnt++;
-    tcnt++;
 }
 
 int main(void)
@@ -56,28 +50,23 @@ int main(void)
     main_screw.make_step = make_step;
 
     encoder_init(&spindel_encoder, 100);
-    encoder_multiplicator_init(&spindel_multiplied_encoder, &spindel_encoder, 32);
+    encoder_multiplicator_init(&spindel_multiplied_encoder, &spindel_encoder, 128);
 
-    encoder_register_callback(&spindel_multiplied_encoder, print_pulse, NULL);
-
-    //thread_init(&thread, 2, true, &main_screw, &spindel_multiplied_encoder);
-    //thread_start(&thread);
+    thread_init(&thread, 2, true, &main_screw, &spindel_multiplied_encoder);
+    thread_start(&thread);
 
     int i, j;
-    for (i = 0; i < 1000; i++)
+    for (i = 0; i < 100; i++)
     {
-        //printf("%i\n", cnt);
-        printf("*\n");
-        cnt = 0;
         encoder_pulse(&spindel_encoder, true);
-        for (j = 0; j < 10000; j++)
+        for (j = 0; j < 1000; j++)
             encoder_multiplicator_timer_tick();
     }
 
     for (j = 0; j < 400000; j++)
             encoder_multiplicator_timer_tick();
 
-    printf("%i\n", tcnt);
+    printf("%i\n", tsteps);
 
     return 0;
 }
