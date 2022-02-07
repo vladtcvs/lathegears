@@ -5,6 +5,7 @@ struct multiplicator_s
 {
     int ratio;
     struct encoder_s *mult;
+    uint32_t queued;
 };
 
 #define MAX_MULTIPLICATORS 2
@@ -18,10 +19,14 @@ void encoder_multiplicator_cb(struct encoder_s* source, bool dir, void *arg)
     struct encoder_s *mult = m->mult;
 
     int ratio = m->ratio;
+    m->queued += ratio;
+
     int i;
-    for (i = 0; i < ratio; i++)
+    uint32_t n = m->queued;
+    for (i = 0; i < n; i++)
     {
         encoder_pulse(mult, dir);
+        m->queued--;
     }
 }
 
@@ -36,6 +41,7 @@ void encoder_multiplicator_init(struct encoder_s *mult, struct encoder_s *source
     struct multiplicator_s *m = &multiplicators[num++];
     m->mult = mult;
     m->ratio = ratio;
+    m->queued = 0;
 
     encoder_init(mult, source->steps * ratio);
     encoder_register_callback(source, encoder_multiplicator_cb, m);
