@@ -61,16 +61,17 @@ void encoder_multiplicator_timer_tick(void)
             m->step_ticks++;
 
             int ratio = m->ratio;
-            if (m->queued > ratio*1.2)
+            if (m->queued*10 > ratio*14)
             {
-                ratio *= 1.5;
+                ratio *= 2;
             }
-            else if (m->queued > ratio*1)
+            else if (m->queued > ratio)
             {
-                ratio *= 1.1;
+                ratio *= 3;
+                ratio /= 2;
             }
 
-            if (m->step_ticks > m->num_ticks / ratio)
+            if (m->step_ticks * ratio > m->num_ticks)
             {
                 m->step_ticks = 0;
                 encoder_pulse(m->mult, m->dir);

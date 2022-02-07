@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.0)
 
 set(F_CPU 16000000UL)
 set(MCU atmega328p)
+set(PROGRAM_PORT "/dev/ttyUSB0")
 
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_CXX_COMPILER avr-g++)
@@ -29,5 +30,7 @@ target_link_libraries(firmware.elf lathe)
 target_include_directories(firmware.elf PUBLIC ${PROJECT_SOURCE_DIR})
 
 
-add_custom_target(strip ALL avr-strip firmware.elf DEPENDS firmware.elf)
-add_custom_target(firmware.bin ALL avr-objcopy -R .eeprom -O binary firmware.elf firmware.bin DEPENDS strip)
+#add_custom_target(strip ALL avr-strip firmware.elf DEPENDS firmware.elf)
+add_custom_target(firmware.bin ALL avr-objcopy -R .eeprom -O binary firmware.elf firmware.bin DEPENDS firmware.elf)
+
+add_custom_target(flash avrdude -v -pm328p -cwiring -P${PROGRAM_PORT} -b115200 -D -Uflash:w:firmware.bin DEPENDS firmware.bin)
