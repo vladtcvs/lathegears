@@ -36,8 +36,6 @@ void thread_init(struct thread_desc_s *thread, real pitch, bool right, struct sc
         thread->valid = false;
         return;
     }
-
-    encoder_register_callback(encoder, thread_on_encoder_cb, thread);
 }
 
 void thread_start(struct thread_desc_s *thread)
