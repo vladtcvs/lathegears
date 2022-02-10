@@ -25,6 +25,12 @@ elseif(${PLATFORM} STREQUAL "stm32f401")
 	set(CMAKE_C_COMPILER arm-none-eabi-gcc)
 	set(CMAKE_CXX_COMPILER arm-none-eabi-g++)
 	set(CMAKE_ASM_COMPILER arm-none-eabi-gcc)
+
+    set(ARCH_CFG -march=armv7e-m+fp -mthumb -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16)
+
+    add_compile_options(-fdata-sections -ffunction-sections ${ARCH_CFG})
+    add_link_options(${ARCH_CFG} -T ${CMAKE_SOURCE_DIR}/stm32f401/stm32.ld -Wl,--gc-sections --static -nostartfiles -specs=nano.specs -specs=nosys.specs)
+    SET(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS)
 else()
 
 endif()
@@ -46,8 +52,13 @@ if (${PLATFORM} STREQUAL "atmega328p")
 	add_custom_target(firmware.bin ALL avr-objcopy -R .eeprom -O binary firmware.elf firmware.bin DEPENDS firmware.elf)
 	add_custom_target(flash avrdude -v -patmega328p -carduino -P${PROGRAM_PORT} -D -Uflash:w:firmware.bin DEPENDS firmware.bin)
 elseif(${PLATFORM} STREQUAL "stm32f401")
-	
+    target_include_directories(firmware.elf PUBLIC libopencm3/include)
+	target_link_libraries(firmware.elf ${CMAKE_SOURCE_DIR}/libopencm3/lib/libopencm3_stm32f4.a)
 
+    add_custom_target(firmware.bin ALL arm-none-eabi-objcopy -R .eeprom -O binary firmware.elf firmware.bin DEPENDS firmware.elf)
+
+    add_custom_target(flash openocd -f interface/stlink-v2.cfg -f target/stm32f4x.cfg
+                    -c \"init\; reset halt\; flash write_image erase firmware.bin 0x08000000 bin\; reset\; exit\" DEPENDS firmware.bin)
 else()
 
 endif()
