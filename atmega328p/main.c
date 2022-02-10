@@ -1,17 +1,11 @@
 #include <stdio.h>
 #include "common.h"
 #include "control.h"
+#include "interface.h"
+#include "config.h"
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
-
-#define LED_PIN 5 // PORTB
-
-#define STEP_PIN 4
-#define DIR_PIN 5
-
-#define PH_A_PIN 2
-#define PH_B_PIN 3
 
 void message(const char *msg)
 {
@@ -21,24 +15,24 @@ void blink(void)
 {
     static bool val;
     if (val)
-        PORTB |= 1 << LED_PIN;
+        LED_PORT |= 1 << LED_PIN;
     else
-        PORTB &= ~(1 << LED_PIN);
+        LED_PORT &= ~(1 << LED_PIN);
     val = !val;
 }
 
 void make_step(void)
 {
     blink();
-    PORTD &= ~(1 << STEP_PIN);
+    STEP_PORT &= ~(1 << STEP_PIN);
 }
 
 void set_dir(bool dir)
 {
     if (dir)
-        PORTD |= (1 << DIR_PIN);
+        DIR_PORT |= (1 << DIR_PIN);
     else
-        PORTD &= ~(1 << DIR_PIN);    
+        DIR_PORT &= ~(1 << DIR_PIN);    
 }
 
 ISR(TIMER0_COMPA_vect)
@@ -48,29 +42,44 @@ ISR(TIMER0_COMPA_vect)
 
 ISR(TIMER0_COMPB_vect)
 {
-    PORTD |= 1 << STEP_PIN;
+    STEP_PORT |= 1 << STEP_PIN;
 }
 
 ISR(INT0_vect)
 {
-    int B = PIND & (1 << PH_B_PIN);
+    int B = PH_B_PORT & (1 << PH_B_PIN);
 
     B = !!B;
     control_encoder_tick(B);
 }
 
+ISR(PCINT0_vect)
+{
+
+}
+
+ISR(PCINT1_vect)
+{
+    
+}
+
+ISR(PCINT2_vect)
+{
+    
+}
+
 void config_hw(void)
 {
     // Config LED
-    DDRB |= 1 << LED_PIN;
+    LED_DDR |= 1 << LED_PIN;
 
     // Config stepper pins
-    DDRD |= 1 << STEP_PIN;
-    DDRD |= 1 << DIR_PIN;
+    STEP_DDR |= 1 << STEP_PIN;
+    DIR_DDR  |= 1 << DIR_PIN;
 
     // Config encoder pins
-    DDRD &= ~(1 << PH_A_PIN);
-    DDRD &= ~(1 << PH_B_PIN);
+    PH_A_DDR &= ~(1 << PH_A_PIN);
+    PH_B_DDR &= ~(1 << PH_B_PIN);
 
     // Config interrupt on INT0 (phase A)
     EIMSK  |= (1 << INT0);
@@ -87,32 +96,28 @@ void config_hw(void)
     TCNT0 = 0;
 }
 
-
-void start_thread(int id)
+void start_timer(void)
 {
     cli();
-    control_select_thread(id);
-    control_start_thread();
     TCCR0B |= ((0 << CS02) | (1 << CS01) | (0 < CS00));
     TCNT0 = 0;
     sei();
 }
 
-void stop_thread(void)
+void stop_timer(void)
 {
     cli();
     TCCR0B &= ~((1 << CS02) | (1 << CS01) | (1 < CS00));
     TCNT0 = 0;
-    control_stop_thread();
     sei();
 }
-
 
 int main(void)
 {
     config_hw();
 
-    control_init(100, 200*2*3, 2.0, false, set_dir, make_step);
+    control_init(SPINDEL_ENCODER_STEPS, SCREW_STEPS, SCREW_PITCH, false, set_dir, make_step, start_timer, stop_timer);
+    interface_init();
 
     control_register_thread(0.20, true); // 0
     control_register_thread(0.25, true); // 1
@@ -134,8 +139,6 @@ int main(void)
     control_register_thread(3.00, true); // 17
 
     sei();
-
-    start_thread(11);
 
     while (true)
         ;

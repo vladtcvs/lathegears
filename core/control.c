@@ -7,7 +7,8 @@
 #include "encoder_multiplicator.h"
 #include "control.h"
 
-
+void (*_start_timer)(void);
+void (*_stop_timer)(void);
 
 struct encoder_s spindel_encoder;
 struct encoder_s spindel_multiplied_encoder;
@@ -45,7 +46,14 @@ static void select_thread(int id)
     }
 }
 
-void control_init(int encoder_steps, int screw_steps, real screw_pitch, bool screw_right, void (*set_dir)(bool dir), void (*make_step)(void))
+void control_init(int encoder_steps,
+                  int screw_steps,
+                  real screw_pitch,
+                  bool screw_right,
+                  void (*set_dir)(bool dir),
+                  void (*make_step)(void),
+                  void (*start_timer)(void),
+                  void (*stop_timer)(void))
 {
     main_screw.dir = screw_right;
     main_screw.pitch = screw_pitch;
@@ -53,6 +61,9 @@ void control_init(int encoder_steps, int screw_steps, real screw_pitch, bool scr
 
     main_screw.set_dir = set_dir;
     main_screw.make_step = make_step;
+
+    _start_timer = start_timer;
+    _stop_timer = stop_timer;
 
     encoder_init(&spindel_encoder, encoder_steps);
     encoder_multiplicator_init(&spindel_multiplied_encoder, &spindel_encoder, 64);
@@ -73,6 +84,13 @@ bool control_register_thread(real pitch, bool right)
     return false;
 }
 
+size_t control_threads(struct thread_desc_s **_threads, bool **_defined)
+{
+    *_threads = threads;
+    *_defined = thread_defined;
+    return MAX_THREADS;
+}
+
 bool control_select_thread(int thread)
 {
     if (thread >= 0 && thread < MAX_THREADS)
@@ -87,13 +105,14 @@ void control_start_thread(void)
 {
     state.running_thread = true;
     select_thread(state.selected_thread);
+    _start_timer();
 }
 
 void control_stop_thread(void)
 {
+    _stop_timer();
     select_thread(-1);
 }
-
 
 void control_multiplyer_timer_tick(void)
 {
