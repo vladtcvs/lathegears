@@ -25,12 +25,14 @@ elseif(${PLATFORM} STREQUAL "stm32f401")
 	set(CMAKE_C_COMPILER arm-none-eabi-gcc)
 	set(CMAKE_CXX_COMPILER arm-none-eabi-g++)
 	set(CMAKE_ASM_COMPILER arm-none-eabi-gcc)
+	set(CMAKE_C_FLAGS_DEBUG "-O0 -ggdb")
+	set(CMAKE_CXX_FLAGS_DEBUG "-O0 -ggdb")
 
-    set(ARCH_CFG -march=armv7e-m+fp -mthumb -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16)
+	set(ARCH_CFG -march=armv7e-m+fp -mthumb -mcpu=cortex-m4 -mfloat-abi=hard -mfpu=fpv4-sp-d16)
 
-    add_compile_options(-fdata-sections -ffunction-sections ${ARCH_CFG})
-    add_link_options(${ARCH_CFG} -T ${CMAKE_SOURCE_DIR}/stm32f401/stm32.ld -Wl,--gc-sections --static -nostartfiles -specs=nano.specs -specs=nosys.specs)
-    SET(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS)
+	add_compile_options(-fdata-sections -ffunction-sections ${ARCH_CFG})
+	add_link_options(${ARCH_CFG} -T ${CMAKE_SOURCE_DIR}/stm32f401/stm32.ld -Wl,--gc-sections --static -nostartfiles -specs=nano.specs -specs=nosys.specs)
+	SET(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS)
 else()
 
 endif()

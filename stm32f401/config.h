@@ -1,7 +1,7 @@
 #pragma once
 
 #define SPINDEL_ENCODER_STEPS 100
-#define SCREW_STEPS (200*2*3)
+#define SCREW_STEPS (200*4*3)
 #define SCREW_PITCH 2.0
 
 #define LED_PORT  GPIOC

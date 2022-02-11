@@ -53,7 +53,9 @@ void control_init(int encoder_steps,
                   void (*set_dir)(bool dir),
                   void (*make_step)(void),
                   void (*start_timer)(void),
-                  void (*stop_timer)(void))
+                  void (*stop_timer)(void),
+		  int multiplicator_ratio,
+		  uint32_t multiplicator_max_ticks)
 {
     main_screw.dir = screw_right;
     main_screw.pitch = screw_pitch;
@@ -66,7 +68,7 @@ void control_init(int encoder_steps,
     _stop_timer = stop_timer;
 
     encoder_init(&spindel_encoder, encoder_steps);
-    encoder_multiplicator_init(&spindel_multiplied_encoder, &spindel_encoder, 64);
+    encoder_multiplicator_init(&spindel_multiplied_encoder, &spindel_encoder, multiplicator_ratio, multiplicator_max_ticks);
 }
 
 bool control_register_thread(real pitch, bool right)

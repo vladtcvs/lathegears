@@ -17,8 +17,6 @@
 #define FTIMER 400000UL
 #define PSC ((FCPU) / (FTIMER) - 1)
 
-static bool going = false;
-
 void message(const char *msg)
 {
 }
@@ -36,7 +34,7 @@ static void blink(void)
 
 static void make_step(void)
 {
-    blink();
+//    blink();
     gpio_clear(STEP_PORT, STEP_PIN);
 }
 
@@ -62,35 +60,40 @@ static void set_dir(bool dir)
 
 void tim2_isr(void)
 {
-    if (!going)
-    {
-        TIM_SR(TIM2) &= ~TIM_SR_UIF;
-        TIM_SR(TIM2) &= ~TIM_SR_CC1IF;
-
-        timer_disable_counter(TIM2);
-        return;
-    }
-
     if (TIM_SR(TIM2) & TIM_SR_UIF)
     {
-        control_multiplyer_timer_tick();
         TIM_SR(TIM2) &= ~TIM_SR_UIF;
+        control_multiplyer_timer_tick();
+        timer_set_counter(TIM2, 0);
     }
     else if (TIM_SR(TIM2) & TIM_SR_CC1IF)
     {
-        clear_step();
         TIM_SR(TIM2) &= ~TIM_SR_CC1IF;
+        clear_step();
     }    
+}
+
+void on_phase_A(void)
+{
+    int phase_B = !!gpio_get(PH_B_PORT, PH_B_PIN);
+
+//    blink();
+    if (phase_B)
+        gpio_set(LED_PORT, LED_PIN);
+    else
+        gpio_clear(LED_PORT, LED_PIN);
+
+    control_encoder_tick(phase_B);
+//    control_encoder_tick(1);
 }
 
 void exti15_10_isr(void)
 {
-    uint32_t status = exti_get_flag_status(EXTI13); // phase A
+    /*uint32_t status = exti_get_flag_status(EXTI13); // phase A
     if (status)
     {
-        int phase_B = !!gpio_get(PH_B_PORT, PH_B_PIN);
-        control_encoder_tick(phase_B);
-    }
+        on_phase_A();
+    }*/
     exti_reset_request(EXTI10 | EXTI11 | EXTI12 | EXTI13 | EXTI14 | EXTI15);
 }
 
@@ -130,7 +133,9 @@ void config_hw(void)
 
     // Config encoder pins
     gpio_mode_setup(PH_A_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, PH_A_PIN);
+    gpio_set(PH_A_PORT, PH_A_PIN);
     gpio_mode_setup(PH_B_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, PH_B_PIN);
+    gpio_set(PH_B_PORT, PH_B_PIN);
 
     // Config interrupt on PB13 (phase A)
     exti_enable_request(EXTI13);
@@ -161,6 +166,8 @@ void config_hw(void)
 
 void start_timer(void)
 {
+    timer_set_counter(TIM2, 0);
+    timer_set_period(TIM2, 4);
     timer_enable_counter(TIM2);
 }
 
@@ -173,7 +180,7 @@ int main(void)
 {
     config_hw();
 
-    control_init(SPINDEL_ENCODER_STEPS, SCREW_STEPS, SCREW_PITCH, false, set_dir, make_step, start_timer, stop_timer);
+    control_init(SPINDEL_ENCODER_STEPS, SCREW_STEPS, SCREW_PITCH, false, set_dir, make_step, start_timer, stop_timer, 64, 100000/5);
     interface_init();
 
     control_register_thread(0.20, true); // 0
@@ -195,12 +202,16 @@ int main(void)
     control_register_thread(2.50, true); // 16
     control_register_thread(3.00, true); // 17
 
-    control_select_thread(0);
+    control_select_thread(11);
     control_start_thread();
 
+    bool oldPA = gpio_get(PH_A_PORT, PH_A_PIN);
     while (true)
     {
-        ;
+        bool PA = gpio_get(PH_A_PORT, PH_A_PIN);
+        if (PA && (!oldPA))
+            on_phase_A();
+        oldPA = PA;
     }
 
     return 0;
