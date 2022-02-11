@@ -15,7 +15,7 @@
 
 #define FCPU 84000000UL
 #define FTIMER 400000UL
-#define PSC ((FCPU) / (FTIMER) - 1)
+#define PSC ((FCPU) / (FTIMER)-1)
 
 void message(const char *msg)
 {
@@ -34,7 +34,6 @@ static void blink(void)
 
 static void make_step(void)
 {
-//    blink();
     gpio_clear(STEP_PORT, STEP_PIN);
 }
 
@@ -70,21 +69,19 @@ void tim2_isr(void)
     {
         TIM_SR(TIM2) &= ~TIM_SR_CC1IF;
         clear_step();
-    }    
+    }
 }
 
 void on_phase_A(void)
 {
     int phase_B = !!gpio_get(PH_B_PORT, PH_B_PIN);
 
-//    blink();
     if (phase_B)
         gpio_set(LED_PORT, LED_PIN);
     else
         gpio_clear(LED_PORT, LED_PIN);
 
     control_encoder_tick(phase_B);
-//    control_encoder_tick(1);
 }
 
 void exti15_10_isr(void)
@@ -121,7 +118,7 @@ void config_hw(void)
     gpio_mode_setup(LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, LED_PIN);
     gpio_set_output_options(LED_PORT, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, LED_PIN);
     gpio_set(LED_PORT, LED_PIN);
-    
+
     // Config stepper pins
     gpio_set(STEP_PORT, STEP_PIN);
     gpio_mode_setup(STEP_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, STEP_PIN);
@@ -180,7 +177,7 @@ int main(void)
 {
     config_hw();
 
-    control_init(SPINDEL_ENCODER_STEPS, SCREW_STEPS, SCREW_PITCH, false, set_dir, make_step, start_timer, stop_timer, 64, 100000/5);
+    control_init(SPINDEL_ENCODER_STEPS, SCREW_STEPS, SCREW_PITCH, false, set_dir, make_step, start_timer, stop_timer, 64, 100000 / 5);
     interface_init();
 
     control_register_thread(0.20, true); // 0
