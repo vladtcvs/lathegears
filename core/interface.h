@@ -3,14 +3,23 @@
 #include "encoder.h"
 #include "control.h"
 
-struct interface_control_s
+enum interface_state_e
 {
-    struct encoder_s *encoder;
-    int thread_id;
+    INTERFACE_SELECT = 0,
+    INTERFACE_RUNNING,
 };
 
-void interface_init(void);
-void interface_reset_button(bool pressed);
-void interface_stop_button(bool pressed);
-void interface_start_button(bool pressed);
-void interface_encoder(bool right);
+struct interface_state_s
+{
+    struct control_state_s *control;
+    struct encoder_s *input_encoder;
+    int thread_id;
+    void (*display_thread)(int id, real pitch, bool right);
+    enum interface_state_e state;
+};
+
+void interface_init(struct interface_state_s *state);
+void interface_reset_button(struct interface_state_s *state, bool pressed);
+void interface_stop_button(struct interface_state_s *state, bool pressed);
+void interface_start_button(struct interface_state_s *state, bool pressed);
+

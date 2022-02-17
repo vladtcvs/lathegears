@@ -17,9 +17,12 @@
 #define FTIMER 400000UL
 #define PSC ((FCPU) / (FTIMER)-1)
 
-struct encoder_s       spindel_encoder;
-struct screw_desc_s    main_screw;
-struct control_state_s control_state;
+struct encoder_s         spindel_encoder;
+struct screw_desc_s      main_screw;
+struct control_state_s   control_state;
+
+struct encoder_s         interface_encoder;
+struct interface_state_s interface_state;
 
 void message(const char *msg)
 {
@@ -179,6 +182,10 @@ void stop_timer(void)
     timer_disable_counter(TIM2);
 }
 
+void display_thread(int id, real pitch, bool right)
+{
+}
+
 int main(void)
 {
     config_hw();
@@ -192,7 +199,14 @@ int main(void)
     encoder_init(&spindel_encoder, SPINDEL_ENCODER_STEPS);
 
     control_init(&control_state, &spindel_encoder, &main_screw);
-//    interface_init();
+
+
+    encoder_init(&interface_encoder, 20);
+
+    interface_state.control = &control_state;
+    interface_state.input_encoder = &interface_encoder;
+    interface_state.display_thread = display_thread;
+    interface_init(&interface_state);
 
     control_register_thread(&control_state, 0.20, true); // 0
     control_register_thread(&control_state, 0.25, true); // 1
@@ -213,11 +227,12 @@ int main(void)
     control_register_thread(&control_state, 2.50, true); // 16
     control_register_thread(&control_state, 3.00, true); // 17
 
-    control_select_thread(&control_state, 11);
-    control_start_thread(&control_state);
-
     bool oldPA = gpio_get(PH_A_PORT, PH_A_PIN);
     bool oldPB = gpio_get(PH_B_PORT, PH_B_PIN);
+
+    bool oldCA = gpio_get(IFACE_ENC_A_PORT, IFACE_ENC_A_PIN);
+//    bool oldCB = gpio_get(IFACE_ENC_B_PORT, IFACE_ENC_B_PIN);
+
     while (true)
     {
         bool PA = gpio_get(PH_A_PORT, PH_A_PIN);
@@ -226,6 +241,15 @@ int main(void)
             on_phase(oldPA, oldPB, PA, PB);
         oldPA = PA;
         oldPB = PB;
+
+        bool CA = gpio_get(IFACE_ENC_A_PORT, IFACE_ENC_A_PIN);
+        bool CB = gpio_get(IFACE_ENC_B_PORT, IFACE_ENC_B_PIN);
+
+        if (CA && !oldCA)
+            encoder_pulse(&interface_encoder, CB);
+
+        oldCA = CA;
+//        oldCB = CB;
     }
 
     return 0;
