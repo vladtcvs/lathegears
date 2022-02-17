@@ -97,6 +97,16 @@ void on_phase(bool oldA, bool oldB, bool A, bool B)
     encoder_pulse(&spindel_encoder, dir);
 }
 
+
+void on_interface_button(struct interface_state_s *state)
+{
+
+}
+
+void display_thread(int id, real pitch, bool right)
+{
+}
+
 void exti15_10_isr(void)
 {
     /*uint32_t status = exti_get_flag_status(EXTI13); // phase A
@@ -143,14 +153,25 @@ void config_hw(void)
 
     // Config encoder pins
     gpio_mode_setup(PH_A_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, PH_A_PIN);
-    gpio_set(PH_A_PORT, PH_A_PIN);
     gpio_mode_setup(PH_B_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, PH_B_PIN);
+    gpio_set(PH_A_PORT, PH_A_PIN);
     gpio_set(PH_B_PORT, PH_B_PIN);
 
+    // Config interface encoder pins
+    gpio_mode_setup(IFACE_ENC_A_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, IFACE_ENC_A_PIN);
+    gpio_mode_setup(IFACE_ENC_B_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, IFACE_ENC_B_PIN);
+    gpio_set(IFACE_ENC_A_PORT, IFACE_ENC_A_PIN);
+    gpio_set(IFACE_ENC_B_PORT, IFACE_ENC_B_PIN);
+
+    // Config interface button interrupt pin
+    gpio_mode_setup(IFACE_INT_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, IFACE_INT_PIN);
+    gpio_set(IFACE_INT_PORT, IFACE_INT_PIN);
+    
+
     // Config interrupt on PB13 (phase A)
-    exti_enable_request(EXTI13);
-    exti_select_source(EXTI13, GPIOB);
-    exti_set_trigger(EXTI13, EXTI_TRIGGER_RISING);
+    //exti_enable_request(EXTI13);
+    //exti_select_source(EXTI13, GPIOB);
+    //exti_set_trigger(EXTI13, EXTI_TRIGGER_RISING);
 
     // Config timer
     rcc_periph_reset_pulse(RST_TIM2);
@@ -180,10 +201,6 @@ void start_timer(void)
 void stop_timer(void)
 {
     timer_disable_counter(TIM2);
-}
-
-void display_thread(int id, real pitch, bool right)
-{
 }
 
 int main(void)
@@ -231,10 +248,12 @@ int main(void)
     bool oldPB = gpio_get(PH_B_PORT, PH_B_PIN);
 
     bool oldCA = gpio_get(IFACE_ENC_A_PORT, IFACE_ENC_A_PIN);
-//    bool oldCB = gpio_get(IFACE_ENC_B_PORT, IFACE_ENC_B_PIN);
+
+    bool oldINT = gpio_get(IFACE_INT_PORT, IFACE_INT_PIN);
 
     while (true)
     {
+        // spindel encoder
         bool PA = gpio_get(PH_A_PORT, PH_A_PIN);
         bool PB = gpio_get(PH_B_PORT, PH_B_PIN);
         if (PA != oldPA || PB != oldPB)
@@ -242,14 +261,18 @@ int main(void)
         oldPA = PA;
         oldPB = PB;
 
+        // interface encoder
         bool CA = gpio_get(IFACE_ENC_A_PORT, IFACE_ENC_A_PIN);
         bool CB = gpio_get(IFACE_ENC_B_PORT, IFACE_ENC_B_PIN);
-
         if (CA && !oldCA)
             encoder_pulse(&interface_encoder, CB);
-
         oldCA = CA;
-//        oldCB = CB;
+
+        // interface buttons
+        bool INT = gpio_get(IFACE_INT_PORT, IFACE_INT_PIN);
+        if (oldINT && !INT)
+            on_interface_button(&interface_state);
+        oldINT = INT;
     }
 
     return 0;
