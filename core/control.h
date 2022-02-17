@@ -12,11 +12,7 @@ void control_init(int encoder_steps,
                   real screw_pitch,
                   bool screw_right,
                   void (*set_dir)(bool dir),
-                  void (*make_step)(void),
-                  void (*start_timer)(void),
-                  void (*stop_timer)(void),
-		  int multiplicator_ratio,
-		  uint32_t multiplicator_max_ticks);
+                  void (*make_step)(void));
 
 bool control_register_thread(real pitch, bool right);
 size_t control_threads(struct thread_desc_s **_threads, bool **_defined);

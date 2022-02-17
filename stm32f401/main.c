@@ -32,9 +32,13 @@ static void blink(void)
     val = !val;
 }
 
+void start_timer(void);
+void stop_timer(void);
+
 static void make_step(void)
 {
     gpio_clear(STEP_PORT, STEP_PIN);
+    start_timer();
 }
 
 static void clear_step(void)
@@ -61,27 +65,29 @@ void tim2_isr(void)
 {
     if (TIM_SR(TIM2) & TIM_SR_UIF)
     {
+	stop_timer();
         TIM_SR(TIM2) &= ~TIM_SR_UIF;
-        control_multiplyer_timer_tick();
-        timer_set_counter(TIM2, 0);
-    }
-    else if (TIM_SR(TIM2) & TIM_SR_CC1IF)
-    {
-        TIM_SR(TIM2) &= ~TIM_SR_CC1IF;
         clear_step();
     }
 }
 
-void on_phase_A(void)
+void on_phase(bool oldA, bool oldB, bool A, bool B)
 {
-    int phase_B = !!gpio_get(PH_B_PORT, PH_B_PIN);
+    bool dir = false;
+    if ((!oldA && A && !B) ||
+        (!oldB && B && A)  ||
+        (oldA && !A && B)  ||
+        (oldB && !B && !A))
+    {
+        dir = true;
+    }
 
-    if (phase_B)
+    if (dir)
         gpio_set(LED_PORT, LED_PIN);
     else
         gpio_clear(LED_PORT, LED_PIN);
 
-    control_encoder_tick(phase_B);
+    control_encoder_tick(dir);
 }
 
 void exti15_10_isr(void)
@@ -149,14 +155,10 @@ void config_hw(void)
     timer_enable_update_event(TIM2);
     timer_continuous_mode(TIM2);
 
-    timer_set_oc_fast_mode(TIM2, TIM_OC1);
-    timer_set_oc_value(TIM2, TIM_OC1, 1);
-
     nvic_set_priority(NVIC_TIM2_IRQ, 0x00);
 
     nvic_enable_irq(NVIC_TIM2_IRQ);
     timer_enable_irq(TIM2, TIM_DIER_UIE);
-    timer_enable_irq(TIM2, TIM_DIER_CC1IE);
 
     nvic_set_priority(NVIC_TIM2_IRQ, 6 * 16);
 }
@@ -177,7 +179,7 @@ int main(void)
 {
     config_hw();
 
-    control_init(SPINDEL_ENCODER_STEPS, SCREW_STEPS, SCREW_PITCH, false, set_dir, make_step, start_timer, stop_timer, 64, 100000 / 5);
+    control_init(SPINDEL_ENCODER_STEPS, SCREW_STEPS, SCREW_PITCH, false, set_dir, make_step);
     interface_init();
 
     control_register_thread(0.20, true); // 0
@@ -203,12 +205,15 @@ int main(void)
     control_start_thread();
 
     bool oldPA = gpio_get(PH_A_PORT, PH_A_PIN);
+    bool oldPB = gpio_get(PH_B_PORT, PH_B_PIN);
     while (true)
     {
         bool PA = gpio_get(PH_A_PORT, PH_A_PIN);
-        if (PA && (!oldPA))
-            on_phase_A();
+        bool PB = gpio_get(PH_B_PORT, PH_B_PIN);
+        if (PA != oldPA || PB != oldPB)
+            on_phase(oldPA, oldPB, PA, PB);
         oldPA = PA;
+        oldPB = PB;
     }
 
     return 0;

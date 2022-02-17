@@ -1,6 +1,6 @@
 #pragma once
 
-#define SPINDEL_ENCODER_STEPS 100
+#define SPINDEL_ENCODER_STEPS (600*3*4)
 #define SCREW_STEPS (200*4*3)
 #define SCREW_PITCH 2.0
 
