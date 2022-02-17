@@ -6,6 +6,7 @@
 #include <libopencm3/cm3/scb.h>
 #include <libopencm3/stm32/timer.h>
 #include <libopencm3/stm32/exti.h>
+#include <libopencm3/stm32/i2c.h>
 
 #include <stdio.h>
 #include "common.h"
@@ -23,6 +24,7 @@ struct control_state_s   control_state;
 
 struct encoder_s         interface_encoder;
 struct interface_state_s interface_state;
+
 
 void message(const char *msg)
 {
@@ -97,10 +99,91 @@ void on_phase(bool oldA, bool oldB, bool A, bool B)
     encoder_pulse(&spindel_encoder, dir);
 }
 
+void pcf8574_write(uint32_t i2c, uint8_t addr, uint8_t data)
+{
+    uint16_t cr1;
+    uint16_t cr2;
+    uint16_t sr1;
+    uint16_t sr2;
+
+    //i2c_transfer7(i2c, addr, &data, 1, NULL, 0);
+    do
+    {
+        cr1 = I2C_CR1(i2c);
+        cr2 = I2C_CR2(i2c);
+        sr1 = I2C_SR1(i2c);
+        sr2 = I2C_SR2(i2c);
+    } while ((sr2 & I2C_SR2_BUSY));
+
+	i2c_send_start(i2c);
+
+	/* Wait for the end of the start condition, master mode selected, and BUSY bit set */
+    do
+    {
+        cr1 = I2C_CR1(i2c);
+        cr2 = I2C_CR2(i2c);
+        sr1 = I2C_SR1(i2c);
+        sr2 = I2C_SR2(i2c);
+    } while ( !((sr1 & I2C_SR1_SB)
+		     && (sr2 & I2C_SR2_MSL)
+		     && (sr2 & I2C_SR2_BUSY) ));
+
+	i2c_send_7bit_address(i2c, addr, I2C_WRITE);
+
+	/* Waiting for address is transferred. */
+	do
+    {
+        cr1 = I2C_CR1(i2c);
+        cr2 = I2C_CR2(i2c);
+        sr1 = I2C_SR1(i2c);
+        sr2 = I2C_SR2(i2c);
+    } while (!(sr1 & I2C_SR1_ADDR));
+
+	i2c_send_data(i2c, data);
+	do
+    {
+        cr1 = I2C_CR1(i2c);
+        cr2 = I2C_CR2(i2c);
+        sr1 = I2C_SR1(i2c);
+        sr2 = I2C_SR2(i2c);
+    } while (!(sr1 & (I2C_SR1_BTF)));
+
+    i2c_send_stop(i2c);
+}
+
+uint8_t pcf8574_read(uint32_t i2c, uint8_t addr)
+{
+    uint8_t data;
+    i2c_transfer7(i2c, addr, NULL, 0, &data, 1);
+    return data;
+}
+
+uint8_t read_buttons(void)
+{
+    uint8_t data = pcf8574_read(I2C_ID, BUTTONS_PCF8574);
+    return data;
+}
 
 void on_interface_button(struct interface_state_s *state)
 {
+    uint8_t buttons = read_buttons();
 
+    bool start = buttons & (1 << 0);
+    bool stop = buttons & (1 << 1);
+    bool reset = buttons & (1 << 2);
+
+    if (stop)
+    {
+        interface_stop_button(state, true);
+    }
+    else if (start)
+    {
+        interface_start_button(state, true);
+    }
+    else if (reset)
+    {
+        interface_reset_button(state, true);
+    }
 }
 
 void display_thread(int id, real pitch, bool right)
@@ -117,7 +200,14 @@ void exti15_10_isr(void)
     exti_reset_request(EXTI10 | EXTI11 | EXTI12 | EXTI13 | EXTI14 | EXTI15);
 }
 
-void config_hw(void)
+void delay(void)
+{
+    unsigned long i;
+    for (i = 0; i < 1000000UL; i++)
+        __asm__("nop");
+}
+
+void config_clocks(void)
 {
     rcc_clock_setup_pll(&rcc_hse_25mhz_3v3[RCC_CLOCK_3V3_84MHZ]);
 
@@ -126,22 +216,12 @@ void config_hw(void)
     rcc_periph_clock_enable(RCC_GPIOB);
     rcc_periph_clock_enable(RCC_GPIOC);
 
-    /* Enable TIM2 clock for steps*/
-    rcc_periph_clock_enable(RCC_TIM2);
-
-    /* Enable EXTI */
-    // EXTI is enabled
-
     // Delay
-    int i;
-    for (i = 0; i < 100000; i++)
-        __asm__("nop");
+    delay();
+}
 
-    // Config LED
-    gpio_mode_setup(LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, LED_PIN);
-    gpio_set_output_options(LED_PORT, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, LED_PIN);
-    gpio_set(LED_PORT, LED_PIN);
-
+void config_control_pins(void)
+{
     // Config stepper pins
     gpio_set(STEP_PORT, STEP_PIN);
     gpio_mode_setup(STEP_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, STEP_PIN);
@@ -156,6 +236,14 @@ void config_hw(void)
     gpio_mode_setup(PH_B_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, PH_B_PIN);
     gpio_set(PH_A_PORT, PH_A_PIN);
     gpio_set(PH_B_PORT, PH_B_PIN);
+}
+
+void config_interface_pins(void)
+{
+    // Config LED
+    gpio_mode_setup(LED_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLDOWN, LED_PIN);
+    gpio_set_output_options(LED_PORT, GPIO_OTYPE_OD, GPIO_OSPEED_50MHZ, LED_PIN);
+    gpio_set(LED_PORT, LED_PIN);
 
     // Config interface encoder pins
     gpio_mode_setup(IFACE_ENC_A_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, IFACE_ENC_A_PIN);
@@ -166,12 +254,50 @@ void config_hw(void)
     // Config interface button interrupt pin
     gpio_mode_setup(IFACE_INT_PORT, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, IFACE_INT_PIN);
     gpio_set(IFACE_INT_PORT, IFACE_INT_PIN);
-    
+}
 
-    // Config interrupt on PB13 (phase A)
-    //exti_enable_request(EXTI13);
-    //exti_select_source(EXTI13, GPIOB);
-    //exti_set_trigger(EXTI13, EXTI_TRIGGER_RISING);
+void config_i2c(void)
+{
+    // Config I2C
+    gpio_set_output_options(I2C_SDA_PORT, GPIO_OTYPE_OD, GPIO_OSPEED_25MHZ, I2C_SDA_PIN);
+    gpio_set_output_options(I2C_SCL_PORT, GPIO_OTYPE_OD, GPIO_OSPEED_25MHZ, I2C_SCL_PIN);
+
+    gpio_set_af(I2C_SDA_PORT, GPIO_AF4, I2C_SDA_PIN);
+    gpio_set_af(I2C_SCL_PORT, GPIO_AF4, I2C_SCL_PIN);
+
+    gpio_mode_setup(I2C_SDA_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLUP, I2C_SDA_PIN);
+    gpio_mode_setup(I2C_SCL_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLUP, I2C_SCL_PIN);
+
+    /* Enable I2C1 clock */
+    rcc_periph_clock_enable(I2C_RCC);
+
+    delay();
+
+    rcc_get_i2c_clk_freq(I2C_ID);
+
+    i2c_peripheral_disable(I2C_ID);
+    i2c_reset(I2C_ID);
+
+    i2c_set_fast_mode(I2C_ID);
+    i2c_set_clock_frequency(I2C_ID, 4);
+    i2c_set_ccr(I2C_ID, 35);
+    i2c_set_trise(I2C_ID, 43);
+
+    i2c_peripheral_enable(I2C_ID);
+    i2c_set_own_7bit_slave_address(I2C_ID, 0x00);
+
+}
+
+void config_buttons(void)
+{
+    // Configure PCF8574
+    pcf8574_write(I2C_ID, BUTTONS_PCF8574, 0xFF);
+}
+
+void config_timer(void)
+{
+    /* Enable TIM2 clock for steps*/
+    rcc_periph_clock_enable(RCC_TIM2);
 
     // Config timer
     rcc_periph_reset_pulse(RST_TIM2);
@@ -189,6 +315,26 @@ void config_hw(void)
     timer_enable_irq(TIM2, TIM_DIER_UIE);
 
     nvic_set_priority(NVIC_TIM2_IRQ, 6 * 16);
+}
+
+void config_hw(void)
+{
+    config_clocks();
+
+    config_control_pins();
+
+    config_interface_pins();
+   
+    config_i2c();
+
+    uint32_t sr1 = I2C_SR1(I2C_ID);
+    uint32_t sr2 = I2C_SR2(I2C_ID);
+    uint32_t cr1 = I2C_CR1(I2C_ID);
+    uint32_t cr2 = I2C_CR2(I2C_ID);
+
+    config_buttons();
+
+    config_timer();
 }
 
 void start_timer(void)
@@ -250,6 +396,10 @@ int main(void)
     bool oldCA = gpio_get(IFACE_ENC_A_PORT, IFACE_ENC_A_PIN);
 
     bool oldINT = gpio_get(IFACE_INT_PORT, IFACE_INT_PIN);
+    if (!oldINT)
+    {
+        read_buttons();
+    }
 
     while (true)
     {

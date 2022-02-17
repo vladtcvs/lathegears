@@ -37,9 +37,13 @@ else()
 
 endif()
 
+
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0")
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -O0")
+
 add_compile_options(
     -std=gnu99 # C99 standard
-    -Os # optimize
+#    -Os # optimize
     -Wall # enable warnings
     )
 
