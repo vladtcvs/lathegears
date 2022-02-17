@@ -6,103 +6,74 @@
 
 #include "control.h"
 
-struct encoder_s spindel_encoder;
 
-struct screw_desc_s main_screw;
-
-struct thread_desc_s threads[MAX_THREADS];
-bool thread_defined[MAX_THREADS] = {false};
-
-struct control_state_s
-{
-    int selected_thread;
-    bool running_thread;
-};
-
-struct control_state_s state;
-
-static void select_thread(int id)
+static void select_thread(struct control_state_s *state, int id)
 {
     if (id > 0 && id < MAX_THREADS)
     {
-        if (thread_defined[id])
+        if (state->thread_defined[id])
         {
-            encoder_register_callback(&spindel_encoder, thread_on_encoder_cb, &threads[id]);
-            thread_start(&threads[id]);
+            encoder_register_callback(state->spindel_encoder, thread_on_encoder_cb, &state->threads[id]);
+            thread_start(&state->threads[id]);
         }
         else
         {
-            encoder_register_callback(&spindel_encoder, NULL, NULL);
+            encoder_register_callback(state->spindel_encoder, NULL, NULL);
         }
     }
     else
     {
-        encoder_register_callback(&spindel_encoder, NULL, NULL);
+        encoder_register_callback(state->spindel_encoder, NULL, NULL);
     }
 }
 
-void control_init(int encoder_steps,
-                  int screw_steps,
-                  real screw_pitch,
-                  bool screw_right,
-                  void (*set_dir)(bool dir),
-                  void (*make_step)(void))
+void control_init(struct control_state_s *state,
+		  struct encoder_s *spindel_encoder,
+		  struct screw_desc_s *main_screw)
 {
-    main_screw.dir = screw_right;
-    main_screw.pitch = screw_pitch;
-    main_screw.steps = screw_steps;
-
-    main_screw.set_dir = set_dir;
-    main_screw.make_step = make_step;
-
-    encoder_init(&spindel_encoder, encoder_steps);
+    state->spindel_encoder = spindel_encoder;
+    state->main_screw = main_screw;
 }
 
-bool control_register_thread(real pitch, bool right)
+bool control_register_thread(struct control_state_s *state, real pitch, bool right)
 {
     int i;
     for (i = 0; i < MAX_THREADS; i++)
     {
-        if (thread_defined[i] == false)
+        if (state->thread_defined[i] == false)
         {
-            thread_init(&threads[i], pitch, right, &main_screw, &spindel_encoder);
-            thread_defined[i] = true;
+            thread_init(&state->threads[i], pitch, right, state->main_screw, state->spindel_encoder);
+            state->thread_defined[i] = true;
             return true;
         }
     }
     return false;
 }
 
-size_t control_threads(struct thread_desc_s **_threads, bool **_defined)
+size_t control_threads(struct control_state_s *state, struct thread_desc_s **_threads, bool **_defined)
 {
-    *_threads = threads;
-    *_defined = thread_defined;
+    *_threads = state->threads;
+    *_defined = state->thread_defined;
     return MAX_THREADS;
 }
 
-bool control_select_thread(int thread)
+bool control_select_thread(struct control_state_s *state, int thread)
 {
     if (thread >= 0 && thread < MAX_THREADS)
     {
-        state.selected_thread = thread;
+        state->selected_thread_id = thread;
         return true;
     }
     return false;
 }
 
-void control_start_thread(void)
+void control_start_thread(struct control_state_s *state)
 {
-    state.running_thread = true;
-    select_thread(state.selected_thread);
+    select_thread(state, state->selected_thread_id);
 }
 
-void control_stop_thread(void)
+void control_stop_thread(struct control_state_s *state)
 {
-    select_thread(-1);
-}
-
-void control_encoder_tick(bool dir)
-{
-    encoder_pulse(&spindel_encoder, dir);
+    select_thread(state, -1);
 }
 

@@ -7,18 +7,24 @@
 #include "common.h"
 #include "threads.h"
 
-void control_init(int encoder_steps,
-                  int screw_steps,
-                  real screw_pitch,
-                  bool screw_right,
-                  void (*set_dir)(bool dir),
-                  void (*make_step)(void));
+struct control_state_s
+{
+    struct thread_desc_s threads[MAX_THREADS];
+    bool thread_defined[MAX_THREADS];
+    int  selected_thread_id;
 
-bool control_register_thread(real pitch, bool right);
-size_t control_threads(struct thread_desc_s **_threads, bool **_defined);
-bool control_select_thread(int thread);
-void control_start_thread(void);
-void control_stop_thread(void);
+    struct encoder_s     *spindel_encoder;
+    struct screw_desc_s  *main_screw;
+};
 
-void control_multiplyer_timer_tick(void);
-void control_encoder_tick(bool dir);
+
+void control_init(struct control_state_s *state,
+		  struct encoder_s *spindel_encoder,
+		  struct screw_desc_s *main_screw);
+
+bool control_register_thread(struct control_state_s *state, real pitch, bool right);
+size_t control_threads(struct control_state_s *state, struct thread_desc_s **_threads, bool **_defined);
+bool control_select_thread(struct control_state_s *state, int thread);
+void control_start_thread(struct control_state_s *state);
+void control_stop_thread(struct control_state_s *state);
+

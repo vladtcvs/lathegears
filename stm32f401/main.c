@@ -17,6 +17,10 @@
 #define FTIMER 400000UL
 #define PSC ((FCPU) / (FTIMER)-1)
 
+struct encoder_s       spindel_encoder;
+struct screw_desc_s    main_screw;
+struct control_state_s control_state;
+
 void message(const char *msg)
 {
 }
@@ -87,7 +91,7 @@ void on_phase(bool oldA, bool oldB, bool A, bool B)
     else
         gpio_clear(LED_PORT, LED_PIN);
 
-    control_encoder_tick(dir);
+    encoder_pulse(&spindel_encoder, dir);
 }
 
 void exti15_10_isr(void)
@@ -179,30 +183,38 @@ int main(void)
 {
     config_hw();
 
-    control_init(SPINDEL_ENCODER_STEPS, SCREW_STEPS, SCREW_PITCH, false, set_dir, make_step);
-    interface_init();
+    main_screw.pitch     = SCREW_PITCH;
+    main_screw.steps     = SCREW_STEPS;
+    main_screw.dir       = false;
+    main_screw.set_dir   = set_dir;
+    main_screw.make_step = make_step;
 
-    control_register_thread(0.20, true); // 0
-    control_register_thread(0.25, true); // 1
-    control_register_thread(0.30, true); // 2
-    control_register_thread(0.35, true); // 3
-    control_register_thread(0.40, true); // 4
-    control_register_thread(0.45, true); // 5
-    control_register_thread(0.50, true); // 6
-    control_register_thread(0.60, true); // 7
-    control_register_thread(0.70, true); // 8
-    control_register_thread(0.75, true); // 9
-    control_register_thread(0.80, true); // 10
-    control_register_thread(1.00, true); // 11
-    control_register_thread(1.25, true); // 12
-    control_register_thread(1.50, true); // 13
-    control_register_thread(1.75, true); // 14
-    control_register_thread(2.00, true); // 15
-    control_register_thread(2.50, true); // 16
-    control_register_thread(3.00, true); // 17
+    encoder_init(&spindel_encoder, SPINDEL_ENCODER_STEPS);
 
-    control_select_thread(11);
-    control_start_thread();
+    control_init(&control_state, &spindel_encoder, &main_screw);
+//    interface_init();
+
+    control_register_thread(&control_state, 0.20, true); // 0
+    control_register_thread(&control_state, 0.25, true); // 1
+    control_register_thread(&control_state, 0.30, true); // 2
+    control_register_thread(&control_state, 0.35, true); // 3
+    control_register_thread(&control_state, 0.40, true); // 4
+    control_register_thread(&control_state, 0.45, true); // 5
+    control_register_thread(&control_state, 0.50, true); // 6
+    control_register_thread(&control_state, 0.60, true); // 7
+    control_register_thread(&control_state, 0.70, true); // 8
+    control_register_thread(&control_state, 0.75, true); // 9
+    control_register_thread(&control_state, 0.80, true); // 10
+    control_register_thread(&control_state, 1.00, true); // 11
+    control_register_thread(&control_state, 1.25, true); // 12
+    control_register_thread(&control_state, 1.50, true); // 13
+    control_register_thread(&control_state, 1.75, true); // 14
+    control_register_thread(&control_state, 2.00, true); // 15
+    control_register_thread(&control_state, 2.50, true); // 16
+    control_register_thread(&control_state, 3.00, true); // 17
+
+    control_select_thread(&control_state, 11);
+    control_start_thread(&control_state);
 
     bool oldPA = gpio_get(PH_A_PORT, PH_A_PIN);
     bool oldPB = gpio_get(PH_B_PORT, PH_B_PIN);
@@ -218,3 +230,4 @@ int main(void)
 
     return 0;
 }
+
