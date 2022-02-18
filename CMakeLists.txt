@@ -48,21 +48,13 @@ add_compile_options(
     )
 
 add_subdirectory(core)
-
-
-add_executable(firmware.elf ${PLATFORM}/main.c)
-target_link_libraries(firmware.elf lathe)
-target_include_directories(firmware.elf PUBLIC .)
+add_subdirectory(${PLATFORM})
 
 if (${PLATFORM} STREQUAL "atmega328p")
 	add_custom_target(firmware.bin ALL avr-objcopy -R .eeprom -O binary firmware.elf firmware.bin DEPENDS firmware.elf)
 	add_custom_target(flash avrdude -v -patmega328p -carduino -P${PROGRAM_PORT} -D -Uflash:w:firmware.bin DEPENDS firmware.bin)
 elseif(${PLATFORM} STREQUAL "stm32f401")
-    target_include_directories(firmware.elf PUBLIC libopencm3/include)
-	target_link_libraries(firmware.elf ${CMAKE_SOURCE_DIR}/libopencm3/lib/libopencm3_stm32f4.a)
-
     add_custom_target(firmware.bin ALL arm-none-eabi-objcopy -R .eeprom -O binary firmware.elf firmware.bin DEPENDS firmware.elf)
-
     add_custom_target(flash openocd -f interface/stlink-v2.cfg -f target/stm32f4x.cfg
                     -c \"init\; reset halt\; flash write_image erase firmware.bin 0x08000000 bin\; reset\; exit\" DEPENDS firmware.bin)
 else()

@@ -14,6 +14,9 @@
 #include "interface.h"
 #include "config.h"
 
+#include "keyboard.h"
+#include "driver_i2c.h"
+
 #define FCPU 84000000UL
 #define FTIMER 400000UL
 #define PSC ((FCPU) / (FTIMER)-1)
@@ -98,137 +101,13 @@ void on_phase(bool oldA, bool oldB, bool A, bool B)
     encoder_pulse(&spindel_encoder, dir);
 }
 
-void pcf8574_write(uint32_t i2c, uint8_t addr, uint8_t data)
-{
-    uint16_t cr1;
-    uint16_t cr2;
-    uint16_t sr1;
-    uint16_t sr2;
-
-    int tries = 0;
-    while (tries < 10)
-    {
-        bool retry = false;
-        int cnt = 0;
-        do
-        {
-            sr1 = I2C_SR1(i2c);
-            sr2 = I2C_SR2(i2c);
-            cnt++;
-            if (cnt >= 10000)
-            {
-                retry = true;
-                break;
-            }
-        } while ((sr2 & I2C_SR2_BUSY));
-
-        if (retry)
-        {
-            i2c_send_stop(i2c);
-            I2C_CR1(i2c) |= I2C_CR1_SWRST;    
-            tries++;
-            continue;
-        }
-
-        i2c_send_start(i2c);
-
-        cnt = 0;
-        /* Wait for the end of the start condition, master mode selected, and BUSY bit set */
-        do
-        {
-            sr1 = I2C_SR1(i2c);
-            sr2 = I2C_SR2(i2c);
-
-            cnt++;
-            if (cnt >= 10000)
-            {
-                retry = true;
-                break;
-            }
-        } while (!((sr1 & I2C_SR1_SB) && (sr2 & I2C_SR2_MSL) && (sr2 & I2C_SR2_BUSY)));
-
-        if (retry)
-        {
-            i2c_send_stop(i2c);
-            I2C_CR1(i2c) |= I2C_CR1_SWRST;
-            tries++;
-            continue;
-        }
-
-        i2c_send_7bit_address(i2c, addr, I2C_WRITE);
-
-        /* Waiting for address is transferred. */
-        cnt = 0;
-        do
-        {
-            sr1 = I2C_SR1(i2c);
-            sr2 = I2C_SR2(i2c);
-
-            cnt++;
-            if (cnt >= 10000)
-            {
-                retry = true;
-                break;
-            }
-        } while (!(sr1 & I2C_SR1_ADDR));
-
-        if (retry)
-        {
-            i2c_send_stop(i2c);
-            I2C_CR1(i2c) |= I2C_CR1_SWRST;
-            tries++;
-            continue;
-        }
-
-        i2c_send_data(i2c, data);
-        cnt = 0;
-        do
-        {
-            sr1 = I2C_SR1(i2c);
-            sr2 = I2C_SR2(i2c);
-
-            cnt++;
-            if (cnt >= 10000)
-            {
-                retry = true;
-                break;
-            }
-        } while (!(sr1 & (I2C_SR1_BTF)));
-
-        if (retry)
-        {
-            i2c_send_stop(i2c);
-            I2C_CR1(i2c) |= I2C_CR1_SWRST;
-            tries++;
-            continue;
-        }
-
-        break;
-    }
-
-    i2c_send_stop(i2c);
-}
-
-uint8_t pcf8574_read(uint32_t i2c, uint8_t addr)
-{
-    uint8_t data;
-    i2c_transfer7(i2c, addr, NULL, 0, &data, 1);
-    return data;
-}
-
-uint8_t read_buttons(void)
-{
-    uint8_t data = pcf8574_read(I2C_ID, BUTTONS_PCF8574);
-    return data;
-}
-
 void on_interface_button(struct interface_state_s *state)
 {
-    uint8_t buttons = read_buttons();
+    uint32_t buttons = buttons_read();
 
-    bool start = buttons & (1 << 0);
-    bool stop = buttons & (1 << 1);
-    bool reset = buttons & (1 << 2);
+    bool start = !!(buttons & (1 << 0));
+    bool stop = !!(buttons & (1 << 1));
+    bool reset = !!(buttons & (1 << 2));
 
     if (stop)
     {
@@ -244,6 +123,7 @@ void on_interface_button(struct interface_state_s *state)
     }
 }
 
+
 void display_thread(int id, real pitch, bool right)
 {
 }
@@ -258,7 +138,7 @@ void exti15_10_isr(void)
     exti_reset_request(EXTI10 | EXTI11 | EXTI12 | EXTI13 | EXTI14 | EXTI15);
 }
 
-void delay(void)
+static void delay(void)
 {
     unsigned long i;
     for (i = 0; i < 1000000UL; i++)
@@ -314,43 +194,6 @@ void config_interface_pins(void)
     gpio_set(IFACE_INT_PORT, IFACE_INT_PIN);
 }
 
-void config_i2c(void)
-{
-    // Config I2C
-    gpio_set_output_options(I2C_SDA_PORT, GPIO_OTYPE_OD, GPIO_OSPEED_25MHZ, I2C_SDA_PIN);
-    gpio_set_output_options(I2C_SCL_PORT, GPIO_OTYPE_OD, GPIO_OSPEED_25MHZ, I2C_SCL_PIN);
-
-    gpio_set_af(I2C_SDA_PORT, GPIO_AF4, I2C_SDA_PIN);
-    gpio_set_af(I2C_SCL_PORT, GPIO_AF4, I2C_SCL_PIN);
-
-    gpio_mode_setup(I2C_SDA_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLUP, I2C_SDA_PIN);
-    gpio_mode_setup(I2C_SCL_PORT, GPIO_MODE_AF, GPIO_PUPD_PULLUP, I2C_SCL_PIN);
-
-    /* Enable I2C1 clock */
-    rcc_periph_clock_enable(I2C_RCC);
-
-    delay();
-
-    rcc_get_i2c_clk_freq(I2C_ID);
-
-    i2c_peripheral_disable(I2C_ID);
-    i2c_reset(I2C_ID);
-
-    i2c_set_fast_mode(I2C_ID);
-    i2c_set_clock_frequency(I2C_ID, 4);
-    i2c_set_ccr(I2C_ID, 35);
-    i2c_set_trise(I2C_ID, 43);
-
-    i2c_peripheral_enable(I2C_ID);
-    i2c_set_own_7bit_slave_address(I2C_ID, 0x00);
-}
-
-void config_buttons(void)
-{
-    // Configure PCF8574
-    pcf8574_write(I2C_ID, BUTTONS_PCF8574, 0xFF);
-}
-
 void config_timer(void)
 {
     /* Enable TIM2 clock for steps*/
@@ -377,21 +220,12 @@ void config_timer(void)
 void config_hw(void)
 {
     config_clocks();
-
     config_control_pins();
-
     config_interface_pins();
-
-    config_i2c();
-
-    uint32_t sr1 = I2C_SR1(I2C_ID);
-    uint32_t sr2 = I2C_SR2(I2C_ID);
-    uint32_t cr1 = I2C_CR1(I2C_ID);
-    uint32_t cr2 = I2C_CR2(I2C_ID);
-
-    config_buttons();
-
     config_timer();
+
+    i2c_init();
+    buttons_init();
 }
 
 void start_timer(void)
@@ -454,7 +288,7 @@ int main(void)
     bool oldINT = gpio_get(IFACE_INT_PORT, IFACE_INT_PIN);
     if (!oldINT)
     {
-        read_buttons();
+        buttons_read();
     }
 
     while (true)
