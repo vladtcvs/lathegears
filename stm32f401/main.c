@@ -18,13 +18,12 @@
 #define FTIMER 400000UL
 #define PSC ((FCPU) / (FTIMER)-1)
 
-struct encoder_s         spindel_encoder;
-struct screw_desc_s      main_screw;
-struct control_state_s   control_state;
+struct encoder_s spindel_encoder;
+struct screw_desc_s main_screw;
+struct control_state_s control_state;
 
-struct encoder_s         interface_encoder;
+struct encoder_s interface_encoder;
 struct interface_state_s interface_state;
-
 
 void message(const char *msg)
 {
@@ -74,7 +73,7 @@ void tim2_isr(void)
 {
     if (TIM_SR(TIM2) & TIM_SR_UIF)
     {
-	stop_timer();
+        stop_timer();
         TIM_SR(TIM2) &= ~TIM_SR_UIF;
         clear_step();
     }
@@ -84,8 +83,8 @@ void on_phase(bool oldA, bool oldB, bool A, bool B)
 {
     bool dir = false;
     if ((!oldA && A && !B) ||
-        (!oldB && B && A)  ||
-        (oldA && !A && B)  ||
+        (!oldB && B && A) ||
+        (oldA && !A && B) ||
         (oldB && !B && !A))
     {
         dir = true;
@@ -106,47 +105,106 @@ void pcf8574_write(uint32_t i2c, uint8_t addr, uint8_t data)
     uint16_t sr1;
     uint16_t sr2;
 
-    //i2c_transfer7(i2c, addr, &data, 1, NULL, 0);
-    do
+    int tries = 0;
+    while (tries < 10)
     {
-        cr1 = I2C_CR1(i2c);
-        cr2 = I2C_CR2(i2c);
-        sr1 = I2C_SR1(i2c);
-        sr2 = I2C_SR2(i2c);
-    } while ((sr2 & I2C_SR2_BUSY));
+        bool retry = false;
+        int cnt = 0;
+        do
+        {
+            sr1 = I2C_SR1(i2c);
+            sr2 = I2C_SR2(i2c);
+            cnt++;
+            if (cnt >= 10000)
+            {
+                retry = true;
+                break;
+            }
+        } while ((sr2 & I2C_SR2_BUSY));
 
-	i2c_send_start(i2c);
+        if (retry)
+        {
+            i2c_send_stop(i2c);
+            I2C_CR1(i2c) |= I2C_CR1_SWRST;    
+            tries++;
+            continue;
+        }
 
-	/* Wait for the end of the start condition, master mode selected, and BUSY bit set */
-    do
-    {
-        cr1 = I2C_CR1(i2c);
-        cr2 = I2C_CR2(i2c);
-        sr1 = I2C_SR1(i2c);
-        sr2 = I2C_SR2(i2c);
-    } while ( !((sr1 & I2C_SR1_SB)
-		     && (sr2 & I2C_SR2_MSL)
-		     && (sr2 & I2C_SR2_BUSY) ));
+        i2c_send_start(i2c);
 
-	i2c_send_7bit_address(i2c, addr, I2C_WRITE);
+        cnt = 0;
+        /* Wait for the end of the start condition, master mode selected, and BUSY bit set */
+        do
+        {
+            sr1 = I2C_SR1(i2c);
+            sr2 = I2C_SR2(i2c);
 
-	/* Waiting for address is transferred. */
-	do
-    {
-        cr1 = I2C_CR1(i2c);
-        cr2 = I2C_CR2(i2c);
-        sr1 = I2C_SR1(i2c);
-        sr2 = I2C_SR2(i2c);
-    } while (!(sr1 & I2C_SR1_ADDR));
+            cnt++;
+            if (cnt >= 10000)
+            {
+                retry = true;
+                break;
+            }
+        } while (!((sr1 & I2C_SR1_SB) && (sr2 & I2C_SR2_MSL) && (sr2 & I2C_SR2_BUSY)));
 
-	i2c_send_data(i2c, data);
-	do
-    {
-        cr1 = I2C_CR1(i2c);
-        cr2 = I2C_CR2(i2c);
-        sr1 = I2C_SR1(i2c);
-        sr2 = I2C_SR2(i2c);
-    } while (!(sr1 & (I2C_SR1_BTF)));
+        if (retry)
+        {
+            i2c_send_stop(i2c);
+            I2C_CR1(i2c) |= I2C_CR1_SWRST;
+            tries++;
+            continue;
+        }
+
+        i2c_send_7bit_address(i2c, addr, I2C_WRITE);
+
+        /* Waiting for address is transferred. */
+        cnt = 0;
+        do
+        {
+            sr1 = I2C_SR1(i2c);
+            sr2 = I2C_SR2(i2c);
+
+            cnt++;
+            if (cnt >= 10000)
+            {
+                retry = true;
+                break;
+            }
+        } while (!(sr1 & I2C_SR1_ADDR));
+
+        if (retry)
+        {
+            i2c_send_stop(i2c);
+            I2C_CR1(i2c) |= I2C_CR1_SWRST;
+            tries++;
+            continue;
+        }
+
+        i2c_send_data(i2c, data);
+        cnt = 0;
+        do
+        {
+            sr1 = I2C_SR1(i2c);
+            sr2 = I2C_SR2(i2c);
+
+            cnt++;
+            if (cnt >= 10000)
+            {
+                retry = true;
+                break;
+            }
+        } while (!(sr1 & (I2C_SR1_BTF)));
+
+        if (retry)
+        {
+            i2c_send_stop(i2c);
+            I2C_CR1(i2c) |= I2C_CR1_SWRST;
+            tries++;
+            continue;
+        }
+
+        break;
+    }
 
     i2c_send_stop(i2c);
 }
@@ -285,7 +343,6 @@ void config_i2c(void)
 
     i2c_peripheral_enable(I2C_ID);
     i2c_set_own_7bit_slave_address(I2C_ID, 0x00);
-
 }
 
 void config_buttons(void)
@@ -324,7 +381,7 @@ void config_hw(void)
     config_control_pins();
 
     config_interface_pins();
-   
+
     config_i2c();
 
     uint32_t sr1 = I2C_SR1(I2C_ID);
@@ -353,16 +410,15 @@ int main(void)
 {
     config_hw();
 
-    main_screw.pitch     = SCREW_PITCH;
-    main_screw.steps     = SCREW_STEPS;
-    main_screw.dir       = false;
-    main_screw.set_dir   = set_dir;
+    main_screw.pitch = SCREW_PITCH;
+    main_screw.steps = SCREW_STEPS;
+    main_screw.dir = false;
+    main_screw.set_dir = set_dir;
     main_screw.make_step = make_step;
 
     encoder_init(&spindel_encoder, SPINDEL_ENCODER_STEPS);
 
     control_init(&control_state, &spindel_encoder, &main_screw);
-
 
     encoder_init(&interface_encoder, 20);
 
@@ -427,4 +483,3 @@ int main(void)
 
     return 0;
 }
-
