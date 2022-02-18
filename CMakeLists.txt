@@ -54,9 +54,7 @@ if (${PLATFORM} STREQUAL "atmega328p")
 	add_custom_target(firmware.bin ALL avr-objcopy -R .eeprom -O binary firmware.elf firmware.bin DEPENDS firmware.elf)
 	add_custom_target(flash avrdude -v -patmega328p -carduino -P${PROGRAM_PORT} -D -Uflash:w:firmware.bin DEPENDS firmware.bin)
 elseif(${PLATFORM} STREQUAL "stm32f401")
-    add_custom_target(firmware.bin ALL arm-none-eabi-objcopy -R .eeprom -O binary firmware.elf firmware.bin DEPENDS firmware.elf)
-    add_custom_target(flash openocd -f interface/stlink-v2.cfg -f target/stm32f4x.cfg
-                    -c \"init\; reset halt\; flash write_image erase firmware.bin 0x08000000 bin\; reset\; exit\" DEPENDS firmware.bin)
+    
 else()
 
 endif()
