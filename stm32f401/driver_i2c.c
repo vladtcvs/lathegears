@@ -71,11 +71,9 @@ void i2c_init(void)
 
 
 
-void i2c_send_bytes(uint32_t i2c, uint8_t addr, uint8_t *data, size_t len, bool *ok)
+void i2c_send_bytes(uint32_t i2c, uint8_t addr, const uint8_t *data, size_t len, bool *ok)
 {
-    *ok = true;
-    uint16_t sr1;
-    uint16_t sr2;
+    *ok = false;
 
     int tries = 0;
     while (tries < 10)
@@ -89,14 +87,14 @@ void i2c_send_bytes(uint32_t i2c, uint8_t addr, uint8_t *data, size_t len, bool 
         i2c_send_start(i2c);
 
         /* Wait for the end of the start condition, master mode selected, and BUSY bit set */
-        WAIT_CONDITION((sr1 & I2C_SR1_SB) && (sr2 & I2C_SR2_MSL) && (sr2 & I2C_SR2_BUSY), 10000);
+        WAIT_CONDITION((I2C_SR1(i2c) & I2C_SR1_SB) && (I2C_SR2(i2c) & I2C_SR2_MSL) && (I2C_SR2(i2c) & I2C_SR2_BUSY), 10000);
         if (failed)
             RETRY(i2c);
 
         i2c_send_7bit_address(i2c, addr, I2C_WRITE);
 
         /* Waiting for address is transferred. */
-        WAIT_CONDITION(sr1 & I2C_SR1_ADDR, 10000);
+        WAIT_CONDITION(I2C_SR1(i2c) & I2C_SR1_ADDR, 10000);
         if (failed)
             RETRY(i2c);
 
@@ -105,7 +103,7 @@ void i2c_send_bytes(uint32_t i2c, uint8_t addr, uint8_t *data, size_t len, bool 
         {
             i2c_send_data(i2c, data[i]);
 
-            WAIT_CONDITION(sr1 & I2C_SR1_BTF, 10000);
+            WAIT_CONDITION(I2C_SR1(i2c) & I2C_SR1_BTF, 10000);
             if (failed)
                 break;
         }
@@ -113,8 +111,15 @@ void i2c_send_bytes(uint32_t i2c, uint8_t addr, uint8_t *data, size_t len, bool 
         if (failed)
             RETRY(i2c);
 
+        *ok = true;
         break;
     }
 
     i2c_send_stop(i2c);
+}
+
+void i2c_read_bytes(uint32_t i2c, uint8_t addr, uint8_t *data, size_t len, bool *ok)
+{
+    i2c_transfer7(i2c, addr, NULL, 0, data, len);
+    *ok = true;
 }

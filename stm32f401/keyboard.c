@@ -17,7 +17,8 @@ static void pcf8574_write(uint32_t i2c, uint8_t addr, uint8_t data)
 static uint8_t pcf8574_read(uint32_t i2c, uint8_t addr)
 {
     uint8_t data;
-    i2c_transfer7(i2c, addr, NULL, 0, &data, 1);
+    bool ok;
+    i2c_read_bytes(i2c, addr, &data, 1, &ok);
     return data;
 }
 
