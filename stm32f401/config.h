@@ -32,10 +32,17 @@
 #define IFACE_ENC_B_PIN  GPIO5
 
 #define BUTTONS_PCF8574 0x20
+#define EEPROM_24LC256  0x50
+#define DISPLAY_SSD1306 0x3C
+
 
 #define I2C_ID I2C1
 #define I2C_RCC RCC_I2C1
+
 #define I2C_SDA_PORT GPIOB
 #define I2C_SDA_PIN  GPIO9
+#define I2C_SDA_AF   GPIO_AF4
+
 #define I2C_SCL_PORT GPIOB
 #define I2C_SCL_PIN  GPIO8
+#define I2C_SCL_AF   GPIO_AF4

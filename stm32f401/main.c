@@ -310,7 +310,7 @@ int main(void)
 
         // interface buttons
         bool INT = gpio_get(IFACE_INT_PORT, IFACE_INT_PIN);
-        if (oldINT && !INT)
+        if (!INT)
             on_interface_button(&interface_state);
         oldINT = INT;
     }
