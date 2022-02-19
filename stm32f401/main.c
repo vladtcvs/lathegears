@@ -127,6 +127,8 @@ void on_interface_button(struct interface_state_s *state)
 
 void display_thread(int id, real pitch, bool right)
 {
+    bool running = interface_state.state == INTERFACE_RUNNING;
+    display_print_state(running, id, pitch, right);
 }
 
 void exti15_10_isr(void)
@@ -233,7 +235,7 @@ void config_hw(void)
     uint8_t devices[128] = {0};
     size_t devnum = i2c_list_devices(I2C_ID, devices);
 
-    display_init(I2C_ID, DISPLAY_SSD1306);
+    display_init(I2C_ID, DISPLAY_SSD1306, i2c_send_bytes, i2c_read_bytes);
 }
 
 void start_timer(void)

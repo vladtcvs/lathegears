@@ -1,6 +1,7 @@
-add_executable(firmware.elf main.c keyboard.c driver_i2c.c display.c)
+add_executable(firmware.elf main.c keyboard.c driver_i2c.c)
 target_link_libraries(firmware.elf lathe)
 target_link_libraries(firmware.elf ssd1306)
+target_link_libraries(firmware.elf display)
 target_include_directories(firmware.elf PUBLIC .)
 
 target_link_libraries(firmware.elf ${CMAKE_SOURCE_DIR}/libopencm3/lib/libopencm3_stm32f4.a)
