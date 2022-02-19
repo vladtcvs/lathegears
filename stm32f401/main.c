@@ -16,6 +16,7 @@
 
 #include "keyboard.h"
 #include "driver_i2c.h"
+#include "display.h"
 
 #define FCPU 84000000UL
 #define FTIMER 400000UL
@@ -217,6 +218,8 @@ void config_timer(void)
     nvic_set_priority(NVIC_TIM2_IRQ, 6 * 16);
 }
 
+
+
 void config_hw(void)
 {
     config_clocks();
@@ -226,6 +229,11 @@ void config_hw(void)
 
     i2c_init();
     buttons_init();
+
+    uint8_t devices[128] = {0};
+    size_t devnum = i2c_list_devices(I2C_ID, devices);
+
+    display_init(I2C_ID, DISPLAY_SSD1306);
 }
 
 void start_timer(void)

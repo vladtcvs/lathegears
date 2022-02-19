@@ -1,5 +1,10 @@
 #pragma once
 
+#define STM32F4
+
+#include <libopencm3/stm32/i2c.h>
+#include <libopencm3/stm32/gpio.h>
+
 #define SPINDEL_ENCODER_STEPS (600*3*4)
 #define SCREW_STEPS (200*4*3)
 #define SCREW_PITCH 2.0

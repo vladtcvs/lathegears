@@ -48,6 +48,7 @@ add_compile_options(
     )
 
 add_subdirectory(core)
+add_subdirectory(drivers)
 add_subdirectory(${PLATFORM})
 
 if (${PLATFORM} STREQUAL "atmega328p")

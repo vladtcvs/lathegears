@@ -13,7 +13,7 @@
 static void delay(void)
 {
     unsigned long i;
-    for (i = 0; i < 1000000UL; i++)
+    for (i = 0; i < 10000UL; i++)
         __asm__("nop");
 }
 
@@ -83,6 +83,53 @@ void i2c_init(void)
                     }
 
 
+bool i2c_detect_device(uint32_t i2c, uint8_t addr)
+{
+    int tries = 0;
+    while (tries < 3)
+    {
+        bool failed;
+        
+        WAIT_CONDITION(!(I2C_SR2(i2c) & I2C_SR2_BUSY), 100000);
+        if (failed)
+            RETRY(i2c);
+
+        i2c_send_start(i2c);
+
+        /* Wait for the end of the start condition, master mode selected, and BUSY bit set */
+        WAIT_CONDITION((I2C_SR1(i2c) & I2C_SR1_SB) && (I2C_SR2(i2c) & I2C_SR2_MSL) && (I2C_SR2(i2c) & I2C_SR2_BUSY), 10000);
+        if (failed)
+            RETRY(i2c);
+
+        i2c_send_7bit_address(i2c, addr, I2C_READ);
+
+        /* Waiting for address is transferred. */
+        WAIT_CONDITION(I2C_SR1(i2c) & I2C_SR1_ADDR, 500);
+        if (failed)
+            RETRY(i2c);
+
+        uint32_t reg32 = I2C_SR2(i2c);
+        i2c_send_stop(i2c);
+        return true;
+    }
+    i2c_send_stop(i2c);
+    return false;
+}
+
+size_t i2c_list_devices(uint32_t i2c, uint8_t *devices)
+{
+    size_t num = 0;
+    uint8_t addr;
+    for (addr = 1; addr <= 127; addr++)
+    {
+        if (i2c_detect_device(i2c, addr))
+        {
+            devices[num++] = addr;
+        }
+    }
+
+    return num;
+}
 
 void i2c_send_bytes(uint32_t i2c, uint8_t addr, const uint8_t *data, size_t len, bool *ok)
 {
