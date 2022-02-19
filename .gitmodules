@@ -1,3 +1,6 @@
 [submodule "libopencm3"]
 	path = libopencm3
 	url = https://github.com/libopencm3/libopencm3
+[submodule "drivers/ssd1306_libopencm3"]
+	path = drivers/ssd1306
+	url = git@github.com:vladtcvs/ssd1306_libopencm3.git
