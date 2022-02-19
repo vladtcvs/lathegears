@@ -12,6 +12,6 @@ bool display_init(uint32_t i2c, uint8_t addr)
     int i, j;
     for (i = 0; i < 4; i++)
         for (j = 0; j < 128; j++)
-            ssd1306_draw_block(&ssd1306, i, j, 0xAA);
+            ssd1306_draw_block(&ssd1306, i, j, 0xCC);
     return true;
 }
