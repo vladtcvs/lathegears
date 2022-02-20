@@ -124,7 +124,6 @@ void on_interface_button(struct interface_state_s *state)
     }
 }
 
-
 void display_thread(int id, real pitch, bool right)
 {
     bool running = interface_state.state == INTERFACE_RUNNING;
@@ -236,6 +235,8 @@ void config_hw(void)
     size_t devnum = i2c_list_devices(I2C_ID, devices);
 
     display_init(I2C_ID, DISPLAY_SSD1306, i2c_send_bytes, i2c_read_bytes);
+
+    display_show("Hello, world!", -1);
 }
 
 void start_timer(void)
@@ -289,6 +290,10 @@ int main(void)
     control_register_thread(&control_state, 2.00, true); // 15
     control_register_thread(&control_state, 2.50, true); // 16
     control_register_thread(&control_state, 3.00, true); // 17
+
+    control_select_thread(&control_state, 0);
+
+    interface_print_state(&interface_state);
 
     bool oldPA = gpio_get(PH_A_PORT, PH_A_PIN);
     bool oldPB = gpio_get(PH_B_PORT, PH_B_PIN);

@@ -21,6 +21,8 @@ struct thread_bresenham_s
 struct thread_desc_s
 {
     bool dir;
+    real pitch;
+    bool right;
     uint32_t encoder_steps;
     uint32_t thread_steps;
     bool valid;

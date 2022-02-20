@@ -22,15 +22,22 @@ bool display_init(uint32_t i2c, uint8_t addr,
     return true;
 }
 
-void display_show(const char *text, size_t len)
+void display_show(const char *text, int len)
 {
     int i, j;
     int pos = 0;
-    for (i = 0; i < len && text[i] != 0; i++)
+    for (i = 0; i < MAX_SYMBOLS; i++)
     {
+        int symbol = ' ';
+
+        if (i < len && text[i] != 0)
+            symbol = text[i];
+
+        if (symbol < 0 || symbol >= 128)
+            symbol = 0;
         for (j = 0; j < FONT_WIDTH; j++)
         {
-            ssd1306_draw_block(&ssd1306, 0, pos, font[text[i]][j]);
+            ssd1306_draw_block(&ssd1306, 0, pos, font[symbol][j]);
             pos++;
         }
     }
@@ -51,7 +58,10 @@ void display_print_state(bool running, int threadid, float pitch, bool right)
     else
         dir = 'L';
 
-    snprintf(buffer, MAX_SYMBOLS, "%c %2i: %0.2f%c", istate, threadid, (float)pitch, dir);
+    int pitch_i = pitch;
+    int pitch_f = (pitch - pitch_i)*100;
+
+    snprintf(buffer, MAX_SYMBOLS, "%c %2i: %2i.%02i%c", istate, threadid, pitch_i, pitch_f, dir);
 
     display_show(buffer, MAX_SYMBOLS);
 }

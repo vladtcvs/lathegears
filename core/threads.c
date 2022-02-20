@@ -29,6 +29,8 @@ void thread_init(struct thread_desc_s *thread, real pitch, bool right, struct sc
     thread->screw = screw;
 
     thread->dir = (right != screw->dir);
+    thread->pitch = pitch;
+    thread->right = right;
     thread->encoder_steps = 16 * encoder->steps;
     thread->thread_steps = (uint32_t)(16 * thread_steps + 0.5);
 
