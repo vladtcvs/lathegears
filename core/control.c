@@ -9,7 +9,7 @@
 
 static void select_thread(struct control_state_s *state, int id)
 {
-    if (id > 0 && id < MAX_THREADS)
+    if (id >= 0 && id < MAX_THREADS)
     {
         if (state->thread_defined[id])
         {
